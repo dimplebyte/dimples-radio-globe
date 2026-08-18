@@ -13,7 +13,7 @@ const stations = [
 
         longitude: 75.7873,
 
-        stream: ""
+        stream: "http://stream-tx1.radioparadise.com/mp3-128"
     },
 
     {
