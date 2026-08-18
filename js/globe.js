@@ -1,8 +1,46 @@
+/* =========================================
+   RADIO GLOBE
+========================================= */
+
 let globe;
 
 const markerElements = [];
 
-function initializeGlobe() {
+let loadedStations = [];
+
+
+/* =========================================
+   INITIALIZE GLOBE
+========================================= */
+
+function initializeGlobe(stationData = []) {
+
+    /*
+     * Store the real station data locally.
+     */
+
+    loadedStations = Array.isArray(stationData)
+        ? stationData
+        : [];
+
+
+    /*
+     * Remove old markers if the globe
+     * is initialized again.
+     */
+
+    markerElements.forEach(item => {
+
+        item.marker.remove();
+
+    });
+
+    markerElements.length = 0;
+
+
+    /*
+     * Create MapLibre globe.
+     */
 
     globe = new maplibregl.Map({
 
@@ -24,45 +62,111 @@ function initializeGlobe() {
     });
 
 
+    /*
+     * When the map style is ready,
+     * create the real station markers.
+     */
+
     globe.on("style.load", () => {
 
         globe.setProjection({
             type: "globe"
         });
 
+
         createStationMarkers();
+
 
         hideLoadingScreen();
 
+
+        console.log(
+            `Globe displayed ${loadedStations.length} real stations.`
+        );
+
     });
 
+
+    /*
+     * Navigation controls.
+     */
 
     globe.addControl(
         new maplibregl.NavigationControl(),
         "bottom-right"
     );
+
 }
 
 
 /* =========================================
-   CREATE STATION MARKERS
+   CREATE REAL STATION MARKERS
 ========================================= */
 
 function createStationMarkers() {
 
-    stations.forEach(station => {
+    if (!globe) {
+        return;
+    }
+
+
+    /*
+     * Use the real stations loaded from
+     * Radio Browser API.
+     */
+
+    loadedStations.forEach(station => {
+
+        /*
+         * Make sure coordinates are valid.
+         */
+
+        if (
+            !Number.isFinite(station.latitude) ||
+            !Number.isFinite(station.longitude)
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * Create marker button.
+         */
 
         const element =
             document.createElement("button");
 
+
         element.className =
             "station-marker";
 
-        element.type = "button";
+
+        element.type =
+            "button";
+
 
         element.title =
-            `${station.name} — ${station.city}`;
+            `${station.name} — ${station.city}, ${station.country}`;
 
+
+        /*
+         * Accessibility.
+         */
+
+        element.setAttribute(
+            "aria-label",
+            `Play ${station.name}`
+        );
+
+
+        /*
+         * Clicking a marker:
+         *
+         * 1. Focus globe
+         * 2. Select station
+         */
 
         element.addEventListener(
             "click",
@@ -70,13 +174,19 @@ function createStationMarkers() {
 
                 event.stopPropagation();
 
+
                 focusStation(station);
+
 
                 selectStation(station);
 
             }
         );
 
+
+        /*
+         * Create MapLibre marker.
+         */
 
         const marker =
             new maplibregl.Marker({
@@ -88,6 +198,10 @@ function createStationMarkers() {
             ])
             .addTo(globe);
 
+
+        /*
+         * Keep reference to marker.
+         */
 
         markerElements.push({
             station: station,
@@ -105,6 +219,21 @@ function createStationMarkers() {
 ========================================= */
 
 function focusStation(station) {
+
+    if (!globe || !station) {
+        return;
+    }
+
+
+    if (
+        !Number.isFinite(station.latitude) ||
+        !Number.isFinite(station.longitude)
+    ) {
+
+        return;
+
+    }
+
 
     globe.flyTo({
 
@@ -133,7 +262,7 @@ function focusStation(station) {
 function findStation(query) {
 
     const search =
-        query
+        String(query || "")
             .trim()
             .toLowerCase();
 
@@ -143,29 +272,41 @@ function findStation(query) {
     }
 
 
-    return stations.find(station => {
+    return loadedStations.find(station => {
 
         return (
 
-            station.name
+            String(station.name || "")
                 .toLowerCase()
                 .includes(search)
 
             ||
 
-            station.city
+            String(station.city || "")
                 .toLowerCase()
                 .includes(search)
 
             ||
 
-            station.country
+            String(station.country || "")
                 .toLowerCase()
                 .includes(search)
 
         );
 
     });
+
+}
+
+
+/* =========================================
+   GET LOADED STATIONS
+========================================= */
+
+function getLoadedStations() {
+
+    return loadedStations;
+
 }
 
 
@@ -180,13 +321,16 @@ function hideLoadingScreen() {
             "loadingScreen"
         );
 
+
     if (!loading) {
         return;
     }
+
 
     setTimeout(() => {
 
         loading.classList.add("hide");
 
     }, 500);
-      }
+
+                }
