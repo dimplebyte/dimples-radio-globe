@@ -1,195 +1,217 @@
-const stations = [
-
-    {
-        id: 1,
-
-        name: "Radio Globe India",
-
-        city: "Jaipur",
-
-        country: "India",
-
-        latitude: 26.9124,
-
-        longitude: 75.7873,
-
-        stream: "http://stream-tx1.radioparadise.com/mp3-128"
-    },
-
-    {
-        id: 2,
-
-        name: "Kishangarh Radio",
-
-        city: "Kishangarh",
-
-        country: "India",
-
-        latitude: 26.5906,
-
-        longitude: 74.8539,
-
-        stream: ""
-    },
-
-    {
-        id: 3,
-
-        name: "Delhi Radio",
-
-        city: "New Delhi",
-
-        country: "India",
-
-        latitude: 28.6139,
-
-        longitude: 77.2090,
-
-        stream: ""
-    },
-
-    {
-        id: 4,
-
-        name: "Mumbai Radio",
-
-        city: "Mumbai",
-
-        country: "India",
-
-        latitude: 19.0760,
-
-        longitude: 72.8777,
-
-        stream: ""
-    },
-
-    {
-        id: 5,
-
-        name: "London Radio",
-
-        city: "London",
-
-        country: "United Kingdom",
-
-        latitude: 51.5074,
-
-        longitude: -0.1278,
-
-        stream: ""
-    },
-
-    {
-        id: 6,
-
-        name: "Paris Radio",
-
-        city: "Paris",
-
-        country: "France",
-
-        latitude: 48.8566,
-
-        longitude: 2.3522,
-
-        stream: ""
-    },
-
-    {
-        id: 7,
-
-        name: "Tokyo Radio",
-
-        city: "Tokyo",
-
-        country: "Japan",
-
-        latitude: 35.6762,
-
-        longitude: 139.6503,
-
-        stream: ""
-    },
-
-    {
-        id: 8,
-
-        name: "New York Radio",
-
-        city: "New York",
-
-        country: "United States",
-
-        latitude: 40.7128,
-
-        longitude: -74.0060,
-
-        stream: ""
-    },
-
-    {
-        id: 9,
-
-        name: "Sydney Radio",
-
-        city: "Sydney",
-
-        country: "Australia",
-
-        latitude: -33.8688,
-
-        longitude: 151.2093,
-
-        stream: ""
-    },
-
-    {
-        id: 10,
-
-        name: "Rio Radio",
-
-        city: "Rio de Janeiro",
-
-        country: "Brazil",
-
-        latitude: -22.9068,
-
-        longitude: -43.1729,
-
-        stream: ""
-    },
-
-    {
-        id: 11,
-
-        name: "Cairo Radio",
-
-        city: "Cairo",
-
-        country: "Egypt",
-
-        latitude: 30.0444,
-
-        longitude: 31.2357,
-
-        stream: ""
-    },
-
-    {
-        id: 12,
-
-        name: "Dubai Radio",
-
-        city: "Dubai",
-
-        country: "United Arab Emirates",
-
-        latitude: 25.2048,
-
-        longitude: 55.2708,
-
-        stream: ""
+// ==========================================
+// RADIO GLOBE - REAL RADIO STATIONS
+// Data source: Radio Browser API
+// ==========================================
+
+const RADIO_BROWSER_SERVERS = [
+    "https://de1.api.radio-browser.info",
+    "https://at1.api.radio-browser.info",
+    "https://nl1.api.radio-browser.info"
+];
+
+let stations = [];
+let stationsLoading = false;
+
+// ------------------------------------------
+// Get one available Radio Browser server
+// ------------------------------------------
+
+async function getRadioBrowserServer() {
+    for (const server of RADIO_BROWSER_SERVERS) {
+        try {
+            const response = await fetch(
+                `${server}/json/config`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                }
+            );
+
+            if (response.ok) {
+                return server;
+            }
+        } catch (error) {
+            console.log(`Server unavailable: ${server}`);
+        }
     }
 
-];
+    throw new Error("No Radio Browser server is available.");
+}
+
+// ------------------------------------------
+// Load real stations
+// ------------------------------------------
+
+async function loadStations() {
+
+    if (stationsLoading) {
+        return stations;
+    }
+
+    stationsLoading = true;
+
+    try {
+
+        const server = await getRadioBrowserServer();
+
+        const params = new URLSearchParams({
+            hidebroken: "true",
+            has_geo_info: "true",
+            order: "clickcount",
+            reverse: "true",
+            limit: "500"
+        });
+
+        const response = await fetch(
+            `${server}/json/stations/search?${params.toString()}`,
+            {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `Station request failed: ${response.status}`
+            );
+        }
+
+        const data = await response.json();
+
+        stations = data
+            .filter(station =>
+                station.geo_lat !== null &&
+                station.geo_long !== null &&
+                station.url_resolved
+            )
+            .map(station => ({
+                id: station.stationuuid,
+
+                name: station.name || "Unknown Station",
+
+                city: station.state || station.country || "Unknown",
+
+                country: station.country || "Unknown",
+
+                countryCode: station.countrycode || "",
+
+                latitude: Number(station.geo_lat),
+
+                longitude: Number(station.geo_long),
+
+                stream: station.url_resolved,
+
+                homepage: station.homepage || "",
+
+                favicon: station.favicon || "",
+
+                codec: station.codec || "",
+
+                bitrate: Number(station.bitrate) || 0,
+
+                tags: station.tags || "",
+
+                language: station.language || "",
+
+                votes: Number(station.votes) || 0
+            }));
+
+        console.log(
+            `Radio Globe loaded ${stations.length} real stations.`
+        );
+
+        // Tell the rest of the application
+        // that the stations are ready.
+        document.dispatchEvent(
+            new CustomEvent("stationsLoaded", {
+                detail: stations
+            })
+        );
+
+        return stations;
+
+    } catch (error) {
+
+        console.error(
+            "Could not load radio stations:",
+            error
+        );
+
+        stations = [];
+
+        document.dispatchEvent(
+            new CustomEvent("stationsLoadError", {
+                detail: error
+            })
+        );
+
+        return stations;
+
+    } finally {
+
+        stationsLoading = false;
+
+    }
+}
+
+// ------------------------------------------
+// Get current stations
+// ------------------------------------------
+
+function getStations() {
+    return stations;
+}
+
+// ------------------------------------------
+// Find station by ID
+// ------------------------------------------
+
+function getStationById(id) {
+    return stations.find(
+        station => station.id === id
+    );
+}
+
+// ------------------------------------------
+// Register a station click/play
+// ------------------------------------------
+
+async function registerStationClick(stationId) {
+
+    if (!stationId) {
+        return;
+    }
+
+    try {
+
+        const server = await getRadioBrowserServer();
+
+        await fetch(
+            `${server}/json/url/${encodeURIComponent(stationId)}`,
+            {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                }
+            }
+        );
+
+    } catch (error) {
+
+        console.log(
+            "Could not register station click.",
+            error
+        );
+
+    }
+}
+
+// ------------------------------------------
+// Start loading stations automatically
+// ------------------------------------------
+
+loadStations();
