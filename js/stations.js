@@ -1,7 +1,7 @@
-// ==========================================
-// RADIO GLOBE - REAL RADIO STATIONS
-// Data source: Radio Browser API
-// ==========================================
+/* =========================================
+   RADIO GLOBE - STATION DATA
+   Radio Browser API
+========================================= */
 
 const RADIO_BROWSER_SERVERS = [
     "https://de1.api.radio-browser.info",
@@ -12,13 +12,17 @@ const RADIO_BROWSER_SERVERS = [
 let stations = [];
 let stationsLoading = false;
 
-// ------------------------------------------
-// Get one available Radio Browser server
-// ------------------------------------------
+
+/* =========================================
+   GET AVAILABLE API SERVER
+========================================= */
 
 async function getRadioBrowserServer() {
+
     for (const server of RADIO_BROWSER_SERVERS) {
+
         try {
+
             const response = await fetch(
                 `${server}/json/config`,
                 {
@@ -32,17 +36,121 @@ async function getRadioBrowserServer() {
             if (response.ok) {
                 return server;
             }
+
         } catch (error) {
-            console.log(`Server unavailable: ${server}`);
+
+            console.log(
+                `Radio Browser server unavailable: ${server}`
+            );
+
         }
+
     }
 
-    throw new Error("No Radio Browser server is available.");
+    throw new Error(
+        "No Radio Browser server is available."
+    );
 }
 
-// ------------------------------------------
-// Load real stations
-// ------------------------------------------
+
+/* =========================================
+   CONVERT API STATION
+========================================= */
+
+function convertStation(station) {
+
+    return {
+
+        id: station.stationuuid,
+
+        name:
+            station.name ||
+            "Unknown Station",
+
+        city:
+            station.state ||
+            station.country ||
+            "Unknown",
+
+        country:
+            station.country ||
+            "Unknown",
+
+        countryCode:
+            station.countrycode ||
+            "",
+
+        latitude:
+            Number(station.geo_lat),
+
+        longitude:
+            Number(station.geo_long),
+
+        stream:
+            station.url_resolved ||
+            station.url ||
+            "",
+
+        homepage:
+            station.homepage ||
+            "",
+
+        favicon:
+            station.favicon ||
+            "",
+
+        codec:
+            station.codec ||
+            "",
+
+        bitrate:
+            Number(station.bitrate) ||
+            0,
+
+        tags:
+            station.tags ||
+            "",
+
+        language:
+            station.language ||
+            "",
+
+        votes:
+            Number(station.votes) ||
+            0
+
+    };
+
+}
+
+
+/* =========================================
+   REMOVE INVALID STATIONS
+========================================= */
+
+function cleanStations(data) {
+
+    return data
+        .filter(station => {
+
+            return (
+
+                station.geo_lat !== null &&
+                station.geo_long !== null &&
+
+                station.url_resolved
+
+            );
+
+        })
+        .map(convertStation);
+
+}
+
+
+/* =========================================
+   LOAD INITIAL WORLD STATIONS
+========================================= */
 
 async function loadStations() {
 
@@ -54,85 +162,72 @@ async function loadStations() {
 
     try {
 
-        const server = await getRadioBrowserServer();
+        const server =
+            await getRadioBrowserServer();
 
-        const params = new URLSearchParams({
-            hidebroken: "true",
-            has_geo_info: "true",
-            order: "clickcount",
-            reverse: "true",
-            limit: "500"
-        });
 
-        const response = await fetch(
-            `${server}/json/stations/search?${params.toString()}`,
-            {
-                method: "GET",
-                headers: {
-                    "Accept": "application/json"
+        const params =
+            new URLSearchParams({
+
+                hidebroken: "true",
+
+                has_geo_info: "true",
+
+                order: "clickcount",
+
+                reverse: "true",
+
+                limit: "1000"
+
+            });
+
+
+        const response =
+            await fetch(
+                `${server}/json/stations/search?${params}`,
+                {
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
                 }
-            }
-        );
+            );
+
 
         if (!response.ok) {
+
             throw new Error(
                 `Station request failed: ${response.status}`
             );
+
         }
 
-        const data = await response.json();
 
-        stations = data
-            .filter(station =>
-                station.geo_lat !== null &&
-                station.geo_long !== null &&
-                station.url_resolved
-            )
-            .map(station => ({
-                id: station.stationuuid,
+        const data =
+            await response.json();
 
-                name: station.name || "Unknown Station",
 
-                city: station.state || station.country || "Unknown",
+        stations =
+            cleanStations(data);
 
-                country: station.country || "Unknown",
-
-                countryCode: station.countrycode || "",
-
-                latitude: Number(station.geo_lat),
-
-                longitude: Number(station.geo_long),
-
-                stream: station.url_resolved,
-
-                homepage: station.homepage || "",
-
-                favicon: station.favicon || "",
-
-                codec: station.codec || "",
-
-                bitrate: Number(station.bitrate) || 0,
-
-                tags: station.tags || "",
-
-                language: station.language || "",
-
-                votes: Number(station.votes) || 0
-            }));
 
         console.log(
-            `Radio Globe loaded ${stations.length} real stations.`
+            `Loaded ${stations.length} world stations.`
         );
 
-        // Tell the rest of the application
-        // that the stations are ready.
+
         document.dispatchEvent(
-            new CustomEvent("stationsLoaded", {
-                detail: stations
-            })
+            new CustomEvent(
+                "stationsLoaded",
+                {
+                    detail: stations
+                }
+            )
         );
+
 
         return stations;
+
 
     } catch (error) {
 
@@ -141,44 +236,316 @@ async function loadStations() {
             error
         );
 
+
         stations = [];
 
+
         document.dispatchEvent(
-            new CustomEvent("stationsLoadError", {
-                detail: error
-            })
+            new CustomEvent(
+                "stationsLoadError",
+                {
+                    detail: error
+                }
+            )
         );
 
-        return stations;
+
+        return [];
+
 
     } finally {
 
         stationsLoading = false;
 
     }
+
 }
 
-// ------------------------------------------
-// Get current stations
-// ------------------------------------------
+
+/* =========================================
+   SEARCH REAL STATIONS
+========================================= */
+
+async function searchStations(query) {
+
+    const search =
+        String(query || "")
+            .trim();
+
+
+    if (!search) {
+
+        return stations;
+
+    }
+
+
+    try {
+
+        const server =
+            await getRadioBrowserServer();
+
+
+        /*
+         * Search station name, state,
+         * country and city-related text.
+         */
+
+        const params =
+            new URLSearchParams({
+
+                name: search,
+
+                hidebroken: "true",
+
+                has_geo_info: "true",
+
+                order: "votes",
+
+                reverse: "true",
+
+                limit: "100"
+
+            });
+
+
+        const response =
+            await fetch(
+                `${server}/json/stations/search?${params}`,
+                {
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                `Search failed: ${response.status}`
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        return cleanStations(data);
+
+
+    } catch (error) {
+
+        console.error(
+            "Station search failed:",
+            error
+        );
+
+
+        return [];
+
+    }
+
+}
+
+
+/* =========================================
+   SEARCH BY STATE / REGION
+========================================= */
+
+async function searchStationsByState(state) {
+
+    const search =
+        String(state || "")
+            .trim();
+
+
+    if (!search) {
+        return [];
+    }
+
+
+    try {
+
+        const server =
+            await getRadioBrowserServer();
+
+
+        const params =
+            new URLSearchParams({
+
+                state: search,
+
+                hidebroken: "true",
+
+                has_geo_info: "true",
+
+                order: "votes",
+
+                reverse: "true",
+
+                limit: "100"
+
+            });
+
+
+        const response =
+            await fetch(
+                `${server}/json/stations/search?${params}`,
+                {
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                `State search failed: ${response.status}`
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        return cleanStations(data);
+
+
+    } catch (error) {
+
+        console.error(
+            "State search failed:",
+            error
+        );
+
+
+        return [];
+
+    }
+
+}
+
+
+/* =========================================
+   SEARCH BY COUNTRY
+========================================= */
+
+async function searchStationsByCountry(country) {
+
+    const search =
+        String(country || "")
+            .trim();
+
+
+    if (!search) {
+        return [];
+    }
+
+
+    try {
+
+        const server =
+            await getRadioBrowserServer();
+
+
+        const params =
+            new URLSearchParams({
+
+                country: search,
+
+                hidebroken: "true",
+
+                has_geo_info: "true",
+
+                order: "votes",
+
+                reverse: "true",
+
+                limit: "150"
+
+            });
+
+
+        const response =
+            await fetch(
+                `${server}/json/stations/search?${params}`,
+                {
+                    headers: {
+                        "Accept":
+                            "application/json"
+                    }
+                }
+            );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                `Country search failed: ${response.status}`
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        return cleanStations(data);
+
+
+    } catch (error) {
+
+        console.error(
+            "Country search failed:",
+            error
+        );
+
+
+        return [];
+
+    }
+
+}
+
+
+/* =========================================
+   GET CURRENT STATIONS
+========================================= */
 
 function getStations() {
+
     return stations;
+
 }
 
-// ------------------------------------------
-// Find station by ID
-// ------------------------------------------
+
+/* =========================================
+   FIND LOADED STATION
+========================================= */
 
 function getStationById(id) {
+
     return stations.find(
-        station => station.id === id
+        station =>
+            station.id === id
     );
+
 }
 
-// ------------------------------------------
-// Register a station click/play
-// ------------------------------------------
+
+/* =========================================
+   REGISTER STATION CLICK
+========================================= */
 
 async function registerStationClick(stationId) {
 
@@ -186,19 +553,23 @@ async function registerStationClick(stationId) {
         return;
     }
 
+
     try {
 
-        const server = await getRadioBrowserServer();
+        const server =
+            await getRadioBrowserServer();
+
 
         await fetch(
             `${server}/json/url/${encodeURIComponent(stationId)}`,
             {
-                method: "GET",
                 headers: {
-                    "Accept": "application/json"
+                    "Accept":
+                        "application/json"
                 }
             }
         );
+
 
     } catch (error) {
 
@@ -208,10 +579,12 @@ async function registerStationClick(stationId) {
         );
 
     }
+
 }
 
-// ------------------------------------------
-// Start loading stations automatically
-// ------------------------------------------
+
+/* =========================================
+   START INITIAL LOAD
+========================================= */
 
 loadStations();
