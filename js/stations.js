@@ -1,7 +1,8 @@
-/* =========================================
-   RADIO GLOBE - STATION DATA
-   Radio Browser API
-========================================= */
+// ==========================================
+// RADIO GLOBE - REAL RADIO STATIONS
+// Worldwide + Rajasthan stations
+// Data source: Radio Browser API
+// ==========================================
 
 const RADIO_BROWSER_SERVERS = [
     "https://de1.api.radio-browser.info",
@@ -13,9 +14,9 @@ let stations = [];
 let stationsLoading = false;
 
 
-/* =========================================
-   GET AVAILABLE API SERVER
-========================================= */
+// ==========================================
+// GET AVAILABLE RADIO BROWSER SERVER
+// ==========================================
 
 async function getRadioBrowserServer() {
 
@@ -40,11 +41,10 @@ async function getRadioBrowserServer() {
         } catch (error) {
 
             console.log(
-                `Radio Browser server unavailable: ${server}`
+                `Server unavailable: ${server}`
             );
 
         }
-
     }
 
     throw new Error(
@@ -53,11 +53,11 @@ async function getRadioBrowserServer() {
 }
 
 
-/* =========================================
-   CONVERT API STATION
-========================================= */
+// ==========================================
+// CONVERT API STATION INTO OUR FORMAT
+// ==========================================
 
-function convertStation(station) {
+function formatStation(station) {
 
     return {
 
@@ -87,9 +87,7 @@ function convertStation(station) {
             Number(station.geo_long),
 
         stream:
-            station.url_resolved ||
-            station.url ||
-            "",
+            station.url_resolved,
 
         homepage:
             station.homepage ||
@@ -118,47 +116,159 @@ function convertStation(station) {
         votes:
             Number(station.votes) ||
             0
-
     };
-
 }
 
 
-/* =========================================
-   REMOVE INVALID STATIONS
-========================================= */
+// ==========================================
+// GET WORLDWIDE STATIONS
+// ==========================================
 
-function cleanStations(data) {
+async function getWorldwideStations(server) {
+
+    const params = new URLSearchParams({
+
+        hidebroken: "true",
+
+        has_geo_info: "true",
+
+        order: "clickcount",
+
+        reverse: "true",
+
+        limit: "500"
+    });
+
+
+    const response = await fetch(
+
+        `${server}/json/stations/search?${params.toString()}`,
+
+        {
+            method: "GET",
+
+            headers: {
+                "Accept": "application/json"
+            }
+        }
+
+    );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            `Worldwide station request failed: ${response.status}`
+        );
+
+    }
+
+
+    const data =
+        await response.json();
+
 
     return data
-        .filter(station => {
 
-            return (
+        .filter(station =>
 
-                station.geo_lat !== null &&
-                station.geo_long !== null &&
+            station.geo_lat !== null &&
 
-                station.url_resolved
+            station.geo_long !== null &&
 
-            );
+            station.url_resolved
 
-        })
-        .map(convertStation);
+        )
 
+        .map(formatStation);
 }
 
 
-/* =========================================
-   LOAD INITIAL WORLD STATIONS
-========================================= */
+// ==========================================
+// GET RAJASTHAN STATIONS
+// ==========================================
+
+async function getRajasthanStations(server) {
+
+    const params = new URLSearchParams({
+
+        countrycode: "IN",
+
+        state: "Rajasthan",
+
+        stateExact: "false",
+
+        hidebroken: "true",
+
+        has_geo_info: "true",
+
+        order: "clickcount",
+
+        reverse: "true",
+
+        limit: "100"
+    });
+
+
+    const response = await fetch(
+
+        `${server}/json/stations/search?${params.toString()}`,
+
+        {
+            method: "GET",
+
+            headers: {
+                "Accept": "application/json"
+            }
+        }
+
+    );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            `Rajasthan station request failed: ${response.status}`
+        );
+
+    }
+
+
+    const data =
+        await response.json();
+
+
+    return data
+
+        .filter(station =>
+
+            station.geo_lat !== null &&
+
+            station.geo_long !== null &&
+
+            station.url_resolved
+
+        )
+
+        .map(formatStation);
+}
+
+
+// ==========================================
+// LOAD ALL STATIONS
+// ==========================================
 
 async function loadStations() {
 
     if (stationsLoading) {
+
         return stations;
+
     }
 
+
     stationsLoading = true;
+
 
     try {
 
@@ -166,63 +276,108 @@ async function loadStations() {
             await getRadioBrowserServer();
 
 
-        const params =
-            new URLSearchParams({
+        // -------------------------------
+        // Worldwide stations
+        // -------------------------------
 
-                hidebroken: "true",
-
-                has_geo_info: "true",
-
-                order: "clickcount",
-
-                reverse: "true",
-
-                limit: "1000"
-
-            });
+        const worldwideStations =
+            await getWorldwideStations(server);
 
 
-        const response =
-            await fetch(
-                `${server}/json/stations/search?${params}`,
-                {
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    }
-                }
+        console.log(
+            `Worldwide stations: ${worldwideStations.length}`
+        );
+
+
+        // -------------------------------
+        // Rajasthan stations
+        // -------------------------------
+
+        let rajasthanStations = [];
+
+
+        try {
+
+            rajasthanStations =
+                await getRajasthanStations(server);
+
+
+            console.log(
+                `Rajasthan stations: ${rajasthanStations.length}`
             );
 
+        } catch (error) {
 
-        if (!response.ok) {
-
-            throw new Error(
-                `Station request failed: ${response.status}`
+            console.error(
+                "Rajasthan stations could not be loaded:",
+                error
             );
 
         }
 
 
-        const data =
-            await response.json();
+        // -------------------------------
+        // Combine both lists
+        // -------------------------------
+
+        const combinedStations = [
+
+            ...worldwideStations,
+
+            ...rajasthanStations
+
+        ];
+
+
+        // -------------------------------
+        // Remove duplicate stations
+        // -------------------------------
+
+        const uniqueStations =
+            new Map();
+
+
+        combinedStations.forEach(station => {
+
+            if (
+                station.id &&
+                !uniqueStations.has(station.id)
+            ) {
+
+                uniqueStations.set(
+                    station.id,
+                    station
+                );
+
+            }
+
+        });
 
 
         stations =
-            cleanStations(data);
+            Array.from(
+                uniqueStations.values()
+            );
 
 
         console.log(
-            `Loaded ${stations.length} world stations.`
+            `Radio Globe loaded ${stations.length} real stations.`
         );
 
 
+        // =================================
+        // TELL APPLICATION
+        // =================================
+
         document.dispatchEvent(
+
             new CustomEvent(
                 "stationsLoaded",
                 {
                     detail: stations
                 }
             )
+
         );
 
 
@@ -241,16 +396,18 @@ async function loadStations() {
 
 
         document.dispatchEvent(
+
             new CustomEvent(
                 "stationsLoadError",
                 {
                     detail: error
                 }
             )
+
         );
 
 
-        return [];
+        return stations;
 
 
     } finally {
@@ -258,269 +415,12 @@ async function loadStations() {
         stationsLoading = false;
 
     }
-
 }
 
 
-/* =========================================
-   SEARCH REAL STATIONS
-========================================= */
-
-async function searchStations(query) {
-
-    const search =
-        String(query || "")
-            .trim();
-
-
-    if (!search) {
-
-        return stations;
-
-    }
-
-
-    try {
-
-        const server =
-            await getRadioBrowserServer();
-
-
-        /*
-         * Search station name, state,
-         * country and city-related text.
-         */
-
-        const params =
-            new URLSearchParams({
-
-                name: search,
-
-                hidebroken: "true",
-
-                has_geo_info: "true",
-
-                order: "votes",
-
-                reverse: "true",
-
-                limit: "100"
-
-            });
-
-
-        const response =
-            await fetch(
-                `${server}/json/stations/search?${params}`,
-                {
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    }
-                }
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                `Search failed: ${response.status}`
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        return cleanStations(data);
-
-
-    } catch (error) {
-
-        console.error(
-            "Station search failed:",
-            error
-        );
-
-
-        return [];
-
-    }
-
-}
-
-
-/* =========================================
-   SEARCH BY STATE / REGION
-========================================= */
-
-async function searchStationsByState(state) {
-
-    const search =
-        String(state || "")
-            .trim();
-
-
-    if (!search) {
-        return [];
-    }
-
-
-    try {
-
-        const server =
-            await getRadioBrowserServer();
-
-
-        const params =
-            new URLSearchParams({
-
-                state: search,
-
-                hidebroken: "true",
-
-                has_geo_info: "true",
-
-                order: "votes",
-
-                reverse: "true",
-
-                limit: "100"
-
-            });
-
-
-        const response =
-            await fetch(
-                `${server}/json/stations/search?${params}`,
-                {
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    }
-                }
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                `State search failed: ${response.status}`
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        return cleanStations(data);
-
-
-    } catch (error) {
-
-        console.error(
-            "State search failed:",
-            error
-        );
-
-
-        return [];
-
-    }
-
-}
-
-
-/* =========================================
-   SEARCH BY COUNTRY
-========================================= */
-
-async function searchStationsByCountry(country) {
-
-    const search =
-        String(country || "")
-            .trim();
-
-
-    if (!search) {
-        return [];
-    }
-
-
-    try {
-
-        const server =
-            await getRadioBrowserServer();
-
-
-        const params =
-            new URLSearchParams({
-
-                country: search,
-
-                hidebroken: "true",
-
-                has_geo_info: "true",
-
-                order: "votes",
-
-                reverse: "true",
-
-                limit: "150"
-
-            });
-
-
-        const response =
-            await fetch(
-                `${server}/json/stations/search?${params}`,
-                {
-                    headers: {
-                        "Accept":
-                            "application/json"
-                    }
-                }
-            );
-
-
-        if (!response.ok) {
-
-            throw new Error(
-                `Country search failed: ${response.status}`
-            );
-
-        }
-
-
-        const data =
-            await response.json();
-
-
-        return cleanStations(data);
-
-
-    } catch (error) {
-
-        console.error(
-            "Country search failed:",
-            error
-        );
-
-
-        return [];
-
-    }
-
-}
-
-
-/* =========================================
-   GET CURRENT STATIONS
-========================================= */
+// ==========================================
+// GET CURRENT STATIONS
+// ==========================================
 
 function getStations() {
 
@@ -529,28 +429,32 @@ function getStations() {
 }
 
 
-/* =========================================
-   FIND LOADED STATION
-========================================= */
+// ==========================================
+// FIND STATION BY ID
+// ==========================================
 
 function getStationById(id) {
 
     return stations.find(
+
         station =>
             station.id === id
+
     );
 
 }
 
 
-/* =========================================
-   REGISTER STATION CLICK
-========================================= */
+// ==========================================
+// REGISTER STATION CLICK
+// ==========================================
 
 async function registerStationClick(stationId) {
 
     if (!stationId) {
+
         return;
+
     }
 
 
@@ -561,13 +465,17 @@ async function registerStationClick(stationId) {
 
 
         await fetch(
+
             `${server}/json/url/${encodeURIComponent(stationId)}`,
+
             {
+                method: "GET",
+
                 headers: {
-                    "Accept":
-                        "application/json"
+                    "Accept": "application/json"
                 }
             }
+
         );
 
 
@@ -583,8 +491,8 @@ async function registerStationClick(stationId) {
 }
 
 
-/* =========================================
-   START INITIAL LOAD
-========================================= */
+// ==========================================
+// START LOADING
+// ==========================================
 
 loadStations();
