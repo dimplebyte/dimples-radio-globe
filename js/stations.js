@@ -669,5 +669,46 @@ async function registerStationClick(
 // ==========================================
 // START LOADING
 // ==========================================
+// ==========================================
+// VERIFIED RAJASTHAN ONLINE STATION
+// ==========================================
 
+const RAJASTHAN_STATIONS = [
+
+    {
+        id: "air-jaipur",
+        name: "Akashvani Jaipur",
+        city: "Jaipur",
+        state: "Rajasthan",
+        country: "India",
+        countryCode: "IN",
+
+        latitude: 26.9124,
+        longitude: 75.7873,
+
+        /*
+         * Online stream source
+         */
+        stream:
+            "https://stream.zeno.fm/0r0t9d0h5p8uv",
+
+        homepage:
+            "https://akashvani.gov.in/",
+
+        favicon: "",
+
+        codec: "MP3",
+
+        bitrate: 51,
+
+        tags:
+            "Rajasthan, Hindi, Rajasthani, News, Music",
+
+        language:
+            "Hindi, Rajasthani",
+
+        votes: 0
+    }
+
+];
 loadStations();
