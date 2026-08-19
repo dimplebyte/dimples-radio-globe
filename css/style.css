@@ -647,3 +647,114 @@ body {
     }
 
            }
+/* =========================================
+   ATTRACTIVE GLOBE SPACE
+========================================= */
+
+#globe {
+    position: relative;
+    width: 100%;
+    height: 650px;
+    overflow: hidden;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #071b35 0%,
+            #020814 45%,
+            #00030a 100%
+        );
+
+    border-radius: 24px;
+    box-shadow:
+        0 0 50px rgba(40, 160, 255, 0.18),
+        inset 0 0 80px rgba(0, 80, 160, 0.15);
+}
+
+#globe canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+
+/* STAR-LIKE GLOW AROUND GLOBE */
+
+#globe::before {
+    content: "";
+    position: absolute;
+
+    width: 420px;
+    height: 420px;
+
+    left: 50%;
+    top: 50%;
+
+    transform: translate(-50%, -50%);
+
+    border-radius: 50%;
+
+    box-shadow:
+        0 0 40px rgba(70, 190, 255, 0.12),
+        0 0 90px rgba(70, 150, 255, 0.08);
+
+    pointer-events: none;
+}
+
+
+/* LOCATION LABEL */
+
+.globe-label {
+    position: absolute;
+
+    padding: 7px 12px;
+
+    border-radius: 20px;
+
+    background: rgba(0, 20, 40, 0.85);
+
+    border: 1px solid rgba(90, 200, 255, 0.5);
+
+    color: white;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    backdrop-filter: blur(8px);
+
+    box-shadow:
+        0 0 15px rgba(60, 180, 255, 0.25);
+
+    pointer-events: none;
+
+    white-space: nowrap;
+}
+
+
+/* RADIO STATION DOT */
+
+.radio-point {
+    width: 10px;
+    height: 10px;
+
+    border-radius: 50%;
+
+    background: #ffffff;
+
+    box-shadow:
+        0 0 8px #ffffff,
+        0 0 18px #4fc3ff,
+        0 0 30px #4fc3ff;
+}
+
+
+/* MOBILE */
+
+@media (max-width: 768px) {
+
+    #globe {
+        height: 480px;
+        border-radius: 18px;
+    }
+
+}
