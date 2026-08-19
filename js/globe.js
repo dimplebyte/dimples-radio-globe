@@ -1,46 +1,20 @@
-/* =========================================
-   RADIO GLOBE
-========================================= */
+// ==========================================
+// RADIO GLOBE - GLOBE & STATION MARKERS
+// ==========================================
 
-let globe;
+let globe = null;
 
 const markerElements = [];
 
-let loadedStations = [];
 
+// ==========================================
+// INITIALIZE GLOBE
+// ==========================================
 
-/* =========================================
-   INITIALIZE GLOBE
-========================================= */
+function initializeGlobe() {
 
-function initializeGlobe(stationData = []) {
+    console.log("Initializing globe...");
 
-    /*
-     * Store the real station data locally.
-     */
-
-    loadedStations = Array.isArray(stationData)
-        ? stationData
-        : [];
-
-
-    /*
-     * Remove old markers if the globe
-     * is initialized again.
-     */
-
-    markerElements.forEach(item => {
-
-        item.marker.remove();
-
-    });
-
-    markerElements.length = 0;
-
-
-    /*
-     * Create MapLibre globe.
-     */
 
     globe = new maplibregl.Map({
 
@@ -49,7 +23,10 @@ function initializeGlobe(stationData = []) {
         style:
             "https://demotiles.maplibre.org/globe.json",
 
-        center: [20, 20],
+        center: [
+            20,
+            20
+        ],
 
         zoom: 1.2,
 
@@ -62,172 +39,421 @@ function initializeGlobe(stationData = []) {
     });
 
 
-    /*
-     * When the map style is ready,
-     * create the real station markers.
-     */
+    // ======================================
+    // MAP STYLE LOADED
+    // ======================================
 
-    globe.on("style.load", () => {
+    globe.on(
+        "style.load",
+        () => {
 
-        globe.setProjection({
-            type: "globe"
-        });
-
-
-        createStationMarkers();
+            console.log(
+                "Globe style loaded."
+            );
 
 
-        hideLoadingScreen();
+            globe.setProjection({
+
+                type: "globe"
+
+            });
 
 
-        console.log(
-            `Globe displayed ${loadedStations.length} real stations.`
-        );
+            /*
+             * Stations may not have loaded yet.
+             *
+             * If stations are already available,
+             * create markers immediately.
+             */
 
-    });
+            if (
+                Array.isArray(stations) &&
+                stations.length > 0
+            ) {
+
+                createStationMarkers();
+
+            }
 
 
-    /*
-     * Navigation controls.
-     */
+            hideLoadingScreen();
+
+        }
+    );
+
+
+    // ======================================
+    // NAVIGATION CONTROL
+    // ======================================
 
     globe.addControl(
+
         new maplibregl.NavigationControl(),
+
         "bottom-right"
+
     );
 
 }
 
 
-/* =========================================
-   CREATE REAL STATION MARKERS
-========================================= */
+// ==========================================
+// CREATE STATION MARKERS
+// ==========================================
 
 function createStationMarkers() {
 
     if (!globe) {
-        return;
-    }
 
-
-    /*
-     * Use the real stations loaded from
-     * Radio Browser API.
-     */
-
-    loadedStations.forEach(station => {
-
-        /*
-         * Make sure coordinates are valid.
-         */
-
-        if (
-            !Number.isFinite(station.latitude) ||
-            !Number.isFinite(station.longitude)
-        ) {
-
-            return;
-
-        }
-
-
-        /*
-         * Create marker button.
-         */
-
-        const element =
-            document.createElement("button");
-
-
-        element.className =
-            "station-marker";
-
-
-        element.type =
-            "button";
-
-
-        element.title =
-            `${station.name} — ${station.city}, ${station.country}`;
-
-
-        /*
-         * Accessibility.
-         */
-
-        element.setAttribute(
-            "aria-label",
-            `Play ${station.name}`
+        console.log(
+            "Globe is not ready."
         );
 
-
-        /*
-         * Clicking a marker:
-         *
-         * 1. Focus globe
-         * 2. Select station
-         */
-
-        element.addEventListener(
-            "click",
-            event => {
-
-                event.stopPropagation();
-
-
-                focusStation(station);
-
-
-                selectStation(station);
-
-            }
-        );
-
-
-        /*
-         * Create MapLibre marker.
-         */
-
-        const marker =
-            new maplibregl.Marker({
-                element: element
-            })
-            .setLngLat([
-                station.longitude,
-                station.latitude
-            ])
-            .addTo(globe);
-
-
-        /*
-         * Keep reference to marker.
-         */
-
-        markerElements.push({
-            station: station,
-            marker: marker,
-            element: element
-        });
-
-    });
-
-}
-
-
-/* =========================================
-   FOCUS STATION
-========================================= */
-
-function focusStation(station) {
-
-    if (!globe || !station) {
         return;
+
     }
 
 
     if (
-        !Number.isFinite(station.latitude) ||
-        !Number.isFinite(station.longitude)
+        !Array.isArray(stations) ||
+        stations.length === 0
+    ) {
+
+        console.log(
+            "No stations available yet."
+        );
+
+        return;
+
+    }
+
+
+    /*
+     * Remove old markers first.
+     *
+     * This prevents duplicate green dots
+     * when stations load again.
+     */
+
+    markerElements.forEach(
+        item => {
+
+            if (item.marker) {
+
+                item.marker.remove();
+
+            }
+
+        }
+    );
+
+
+    markerElements.length = 0;
+
+
+    console.log(
+        `Creating ${stations.length} station markers...`
+    );
+
+
+    // ======================================
+    // CREATE NEW MARKERS
+    // ======================================
+
+    stations.forEach(
+        station => {
+
+            if (!station) {
+
+                return;
+
+            }
+
+
+            const latitude =
+                Number(
+                    station.latitude
+                );
+
+
+            const longitude =
+                Number(
+                    station.longitude
+                );
+
+
+            /*
+             * Ignore stations without
+             * valid coordinates.
+             */
+
+            if (
+
+                !Number.isFinite(
+                    latitude
+                )
+
+                ||
+
+                !Number.isFinite(
+                    longitude
+                )
+
+            ) {
+
+                return;
+
+            }
+
+
+            // =================================
+            // MARKER BUTTON
+            // =================================
+
+            const element =
+                document.createElement(
+                    "button"
+                );
+
+
+            element.type =
+                "button";
+
+
+            element.className =
+                "station-marker";
+
+
+            element.title =
+                `${station.name} — ${station.city}`;
+
+
+            /*
+             * Accessibility
+             */
+
+            element.setAttribute(
+                "aria-label",
+                `Play ${station.name}`
+            );
+
+
+            // =================================
+            // MARKER CLICK
+            // =================================
+
+            element.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    event.stopPropagation();
+
+
+                    console.log(
+                        "Station selected:",
+                        station.name
+                    );
+
+
+                    focusStation(
+                        station
+                    );
+
+
+                    selectStation(
+                        station
+                    );
+
+
+                    /*
+                     * Start playback.
+                     */
+
+                    if (
+                        typeof playStation ===
+                        "function"
+                    ) {
+
+                        playStation(
+                            station
+                        );
+
+                    }
+
+                }
+            );
+
+
+            // =================================
+            // CREATE MAP MARKER
+            // =================================
+
+            const marker =
+                new maplibregl.Marker({
+
+                    element:
+                        element
+
+                })
+
+                .setLngLat([
+
+                    longitude,
+
+                    latitude
+
+                ])
+
+                .addTo(globe);
+
+
+            // =================================
+            // SAVE MARKER
+            // =================================
+
+            markerElements.push({
+
+                station:
+                    station,
+
+                marker:
+                    marker,
+
+                element:
+                    element
+
+            });
+
+        }
+    );
+
+
+    console.log(
+        `Created ${markerElements.length} station markers.`
+    );
+
+}
+
+
+// ==========================================
+// STATIONS LOADED EVENT
+// ==========================================
+//
+// IMPORTANT:
+//
+// stations.js loads data asynchronously.
+// This event makes sure the globe gets
+// the markers AFTER the API finishes.
+//
+
+document.addEventListener(
+    "stationsLoaded",
+    event => {
+
+        console.log(
+            "stationsLoaded event received."
+        );
+
+
+        /*
+         * Small delay makes sure the map
+         * and DOM are ready.
+         */
+
+        setTimeout(
+            () => {
+
+                if (!globe) {
+
+                    console.log(
+                        "Globe not ready yet."
+                    );
+
+                    return;
+
+                }
+
+
+                createStationMarkers();
+
+
+                /*
+                 * If stations were loaded,
+                 * hide the loading screen.
+                 */
+
+                hideLoadingScreen();
+
+            },
+            100
+        );
+
+    }
+);
+
+
+// ==========================================
+// STATIONS LOAD ERROR
+// ==========================================
+
+document.addEventListener(
+    "stationsLoadError",
+    event => {
+
+        console.error(
+            "Station loading failed:",
+            event.detail
+        );
+
+
+        hideLoadingScreen();
+
+    }
+);
+
+
+// ==========================================
+// FOCUS STATION
+// ==========================================
+
+function focusStation(station) {
+
+    if (
+        !globe ||
+        !station
+    ) {
+
+        return;
+
+    }
+
+
+    const latitude =
+        Number(
+            station.latitude
+        );
+
+
+    const longitude =
+        Number(
+            station.longitude
+        );
+
+
+    if (
+
+        !Number.isFinite(
+            latitude
+        )
+
+        ||
+
+        !Number.isFinite(
+            longitude
+        )
+
     ) {
 
         return;
@@ -238,8 +464,11 @@ function focusStation(station) {
     globe.flyTo({
 
         center: [
-            station.longitude,
-            station.latitude
+
+            longitude,
+
+            latitude
+
         ],
 
         zoom: 4,
@@ -255,64 +484,139 @@ function focusStation(station) {
 }
 
 
-/* =========================================
-   FIND STATION
-========================================= */
+// ==========================================
+// FIND STATION
+// ==========================================
 
 function findStation(query) {
 
+    if (
+        !Array.isArray(stations)
+    ) {
+
+        return null;
+
+    }
+
+
     const search =
-        String(query || "")
+        String(
+            query || ""
+        )
             .trim()
             .toLowerCase();
 
 
     if (!search) {
+
         return null;
+
     }
 
 
-    return loadedStations.find(station => {
+    return stations.find(
+        station => {
 
-        return (
+            const name =
+                String(
+                    station.name || ""
+                )
+                .toLowerCase();
 
-            String(station.name || "")
-                .toLowerCase()
-                .includes(search)
 
-            ||
+            const city =
+                String(
+                    station.city || ""
+                )
+                .toLowerCase();
 
-            String(station.city || "")
-                .toLowerCase()
-                .includes(search)
 
-            ||
+            const state =
+                String(
+                    station.state || ""
+                )
+                .toLowerCase();
 
-            String(station.country || "")
-                .toLowerCase()
-                .includes(search)
 
+            const country =
+                String(
+                    station.country || ""
+                )
+                .toLowerCase();
+
+
+            const tags =
+                String(
+                    station.tags || ""
+                )
+                .toLowerCase();
+
+
+            return (
+
+                name.includes(search)
+
+                ||
+
+                city.includes(search)
+
+                ||
+
+                state.includes(search)
+
+                ||
+
+                country.includes(search)
+
+                ||
+
+                tags.includes(search)
+
+            );
+
+        }
+    );
+
+}
+
+
+// ==========================================
+// FOCUS SEARCH RESULT
+// ==========================================
+
+function focusSearchResult(query) {
+
+    const station =
+        findStation(
+            query
         );
 
-    });
+
+    if (!station) {
+
+        return null;
+
+    }
+
+
+    focusStation(
+        station
+    );
+
+
+    selectStation(
+        station
+    );
+
+
+    return station;
 
 }
 
 
-/* =========================================
-   GET LOADED STATIONS
-========================================= */
-
-function getLoadedStations() {
-
-    return loadedStations;
-
-}
-
-
-/* =========================================
-   LOADING SCREEN
-========================================= */
+// ==========================================
+// LOADING SCREEN
+// ==========================================
 
 function hideLoadingScreen() {
 
@@ -323,14 +627,21 @@ function hideLoadingScreen() {
 
 
     if (!loading) {
+
         return;
+
     }
 
 
-    setTimeout(() => {
+    setTimeout(
+        () => {
 
-        loading.classList.add("hide");
+            loading.classList.add(
+                "hide"
+            );
 
-    }, 500);
+        },
+        500
+    );
 
-                }
+       }
