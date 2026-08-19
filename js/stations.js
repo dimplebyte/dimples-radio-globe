@@ -52,7 +52,7 @@ const RAJASTHAN_CITIES = [
 
 
 // ==========================================
-// GET AVAILABLE RADIO BROWSER SERVER
+// GET AVAILABLE SERVER
 // ==========================================
 
 async function getRadioBrowserServer() {
@@ -74,24 +74,29 @@ async function getRadioBrowserServer() {
             if (response.ok) {
 
                 console.log(
-                    `Radio Browser server: ${server}`
+                    "Radio Browser server:",
+                    server
                 );
 
                 return server;
+
             }
 
         } catch (error) {
 
             console.log(
-                `Server unavailable: ${server}`
+                "Server unavailable:",
+                server
             );
 
         }
+
     }
 
     throw new Error(
         "No Radio Browser server is available."
     );
+
 }
 
 
@@ -166,11 +171,12 @@ function formatStation(station) {
             Number(station.votes) || 0
 
     };
+
 }
 
 
 // ==========================================
-// CHECK STATION
+// VALID STATION
 // ==========================================
 
 function isValidStation(station) {
@@ -195,6 +201,7 @@ function isValidStation(station) {
         )
 
     );
+
 }
 
 
@@ -211,9 +218,7 @@ function cleanStations(data) {
     }
 
     return data
-
         .filter(isValidStation)
-
         .map(formatStation);
 
 }
@@ -250,6 +255,7 @@ async function getWorldwideStations(server) {
             headers: {
                 "Accept": "application/json"
             }
+
         }
 
     );
@@ -295,42 +301,56 @@ async function getRajasthanStateStations(server) {
 
         reverse: "true",
 
-        limit: "100"
+        limit: "200"
 
     });
 
 
-    const response = await fetch(
+    try {
 
-        `${server}/json/stations/search?${params.toString()}`,
+        const response = await fetch(
 
-        {
-            method: "GET",
+            `${server}/json/stations/search?${params.toString()}`,
 
-            headers: {
-                "Accept": "application/json"
+            {
+                method: "GET",
+
+                headers: {
+                    "Accept": "application/json"
+                }
             }
+
+        );
+
+
+        if (!response.ok) {
+
+            console.log(
+                "Rajasthan state request failed:",
+                response.status
+            );
+
+            return [];
+
         }
 
-    );
+
+        const data =
+            await response.json();
 
 
-    if (!response.ok) {
+        return cleanStations(data);
+
+    } catch (error) {
 
         console.log(
-            `Rajasthan state request failed: ${response.status}`
+            "Rajasthan state search failed:",
+            error
         );
 
         return [];
 
     }
-
-
-    const data =
-        await response.json();
-
-
-    return cleanStations(data);
 
 }
 
@@ -354,6 +374,8 @@ async function getRajasthanCityStations(server) {
 
                 name: city,
 
+                state: "Rajasthan",
+
                 hidebroken: "true",
 
                 has_geo_info: "true",
@@ -362,7 +384,7 @@ async function getRajasthanCityStations(server) {
 
                 reverse: "true",
 
-                limit: "25"
+                limit: "50"
 
             });
 
@@ -402,39 +424,35 @@ async function getRajasthanCityStations(server) {
 
 
             /*
-             * Keep only stations that are
-             * actually related to Rajasthan.
+             * Only keep stations whose
+             * information actually relates
+             * to the requested Rajasthan city.
              */
 
             const rajasthanStations =
                 cityStations.filter(station => {
 
-                    const cityText =
-                        (
-                            station.city +
-                            " " +
-                            station.state +
-                            " " +
-                            station.name +
-                            " " +
-                            station.tags
-                        )
-                            .toLowerCase();
+                    const cityText = (
+
+                        `${station.city} ` +
+
+                        `${station.state} ` +
+
+                        `${station.name} ` +
+
+                        `${station.tags} ` +
+
+                        `${station.homepage}`
+
+                    ).toLowerCase();
 
 
-                    return (
+                    const searchCity =
+                        city.toLowerCase();
 
-                        cityText.includes(
-                            city.toLowerCase()
-                        )
 
-                        ||
-
-                        (
-                            station.countryCode ===
-                            "IN"
-                        )
-
+                    return cityText.includes(
+                        searchCity
                     );
 
                 });
@@ -453,8 +471,98 @@ async function getRajasthanCityStations(server) {
         } catch (error) {
 
             console.log(
-                `Could not search ${city}:`,
+                `${city}: search failed`,
                 error
+            );
+
+        }
+
+    }
+
+
+    return results;
+
+}
+
+
+// ==========================================
+// EXTRA INDIA STATIONS
+// ==========================================
+//
+// This catches stations whose database
+// city/state metadata is incomplete but
+// whose station name contains Rajasthan
+// city names.
+//
+
+async function getRajasthanNameStations(server) {
+
+    const results = [];
+
+
+    for (const city of RAJASTHAN_CITIES) {
+
+        try {
+
+            const params = new URLSearchParams({
+
+                countrycode: "IN",
+
+                name: city,
+
+                hidebroken: "true",
+
+                has_geo_info: "true",
+
+                order: "clickcount",
+
+                reverse: "true",
+
+                limit: "50"
+
+            });
+
+
+            const response = await fetch(
+
+                `${server}/json/stations/search?${params.toString()}`,
+
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Accept": "application/json"
+                    }
+
+                }
+
+            );
+
+
+            if (!response.ok) {
+
+                continue;
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            const cityStations =
+                cleanStations(data);
+
+
+            results.push(
+                ...cityStations
+            );
+
+
+        } catch (error) {
+
+            console.log(
+                `Extra search failed for ${city}`
             );
 
         }
@@ -480,9 +588,13 @@ function removeDuplicates(stationList) {
     stationList.forEach(station => {
 
         if (
+
             station &&
+
             station.id &&
+
             !unique.has(station.id)
+
         ) {
 
             unique.set(
@@ -540,7 +652,8 @@ async function loadStations() {
 
 
         console.log(
-            `Worldwide: ${worldwideStations.length}`
+            "Worldwide stations:",
+            worldwideStations.length
         );
 
 
@@ -560,12 +673,13 @@ async function loadStations() {
 
 
         console.log(
-            `Rajasthan state: ${rajasthanStateStations.length}`
+            "Rajasthan state stations:",
+            rajasthanStateStations.length
         );
 
 
         // ----------------------------------
-        // RAJASTHAN CITIES
+        // RAJASTHAN CITY SEARCH
         // ----------------------------------
 
         console.log(
@@ -580,12 +694,34 @@ async function loadStations() {
 
 
         console.log(
-            `Rajasthan cities: ${rajasthanCityStations.length}`
+            "Rajasthan city stations:",
+            rajasthanCityStations.length
         );
 
 
         // ----------------------------------
-        // COMBINE
+        // EXTRA CITY NAME SEARCH
+        // ----------------------------------
+
+        console.log(
+            "Running extra Rajasthan searches..."
+        );
+
+
+        const rajasthanNameStations =
+            await getRajasthanNameStations(
+                server
+            );
+
+
+        console.log(
+            "Extra Rajasthan stations:",
+            rajasthanNameStations.length
+        );
+
+
+        // ----------------------------------
+        // COMBINE EVERYTHING
         // ----------------------------------
 
         const combinedStations = [
@@ -594,7 +730,9 @@ async function loadStations() {
 
             ...rajasthanStateStations,
 
-            ...rajasthanCityStations
+            ...rajasthanCityStations,
+
+            ...rajasthanNameStations
 
         ];
 
@@ -610,12 +748,13 @@ async function loadStations() {
 
 
         console.log(
-            `Radio Globe loaded ${stations.length} total stations.`
+            "Radio Globe total stations:",
+            stations.length
         );
 
 
         // ----------------------------------
-        // SHOW RESULTS TO APPLICATION
+        // SEND TO APPLICATION
         // ----------------------------------
 
         document.dispatchEvent(
@@ -728,6 +867,7 @@ async function registerStationClick(
                 headers: {
                     "Accept": "application/json"
                 }
+
             }
 
         );
@@ -745,7 +885,7 @@ async function registerStationClick(
 
 
 // ==========================================
-// START
+// START APPLICATION
 // ==========================================
 
 loadStations();
