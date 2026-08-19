@@ -599,3 +599,51 @@ body {
         display: none;
     }
   }
+/* =========================================
+   GLOBE VISUAL POLISH
+========================================= */
+
+#globe {
+    filter: brightness(0.92) contrast(1.08);
+}
+
+/* Make station markers more visible */
+
+.station-marker {
+    width: 12px;
+    height: 12px;
+
+    border: 2px solid #ffffff;
+
+    background: #65ff00;
+
+    box-shadow:
+        0 0 6px rgba(101, 255, 0, 0.9),
+        0 0 14px rgba(101, 255, 0, 0.5);
+
+    animation: stationPulse 2s ease-in-out infinite;
+}
+
+.station-marker:hover {
+    transform: scale(1.7);
+
+    box-shadow:
+        0 0 10px rgba(101, 255, 0, 1),
+        0 0 25px rgba(101, 255, 0, 0.8);
+}
+
+@keyframes stationPulse {
+
+    0%,
+    100% {
+        box-shadow:
+            0 0 6px rgba(101, 255, 0, 0.8);
+    }
+
+    50% {
+        box-shadow:
+            0 0 14px rgba(101, 255, 0, 1),
+            0 0 24px rgba(101, 255, 0, 0.5);
+    }
+
+           }
