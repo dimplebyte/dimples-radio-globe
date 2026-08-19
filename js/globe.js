@@ -1,647 +1,228 @@
-// ==========================================
-// RADIO GLOBE - GLOBE & STATION MARKERS
-// ==========================================
+/* =========================================
+   ATTRACTIVE RADIO GLOBE
+========================================= */
 
-let globe = null;
+let globe;
+let scene;
+let camera;
+let renderer;
+let earth;
+let stars;
 
-const markerElements = [];
+function initGlobe() {
 
+    const container = document.getElementById("globe");
 
-// ==========================================
-// INITIALIZE GLOBE
-// ==========================================
+    if (!container) {
+        console.error("Globe container not found");
+        return;
+    }
 
-function initializeGlobe() {
+    /* ---------- SCENE ---------- */
 
-    console.log("Initializing globe...");
+    scene = new THREE.Scene();
 
+    /* ---------- CAMERA ---------- */
 
-    globe = new maplibregl.Map({
+    camera = new THREE.PerspectiveCamera(
+        45,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+    );
 
-        container: "globe",
+    camera.position.z = 3.2;
 
-        style:
-            "https://demotiles.maplibre.org/globe.json",
+    /* ---------- RENDERER ---------- */
 
-        center: [
-            20,
-            20
-        ],
-
-        zoom: 1.2,
-
-        minZoom: 0.8,
-
-        maxZoom: 8,
-
-        attributionControl: false
-
+    renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true
     });
 
-
-    // ======================================
-    // MAP STYLE LOADED
-    // ======================================
-
-    globe.on(
-        "style.load",
-        () => {
-
-            console.log(
-                "Globe style loaded."
-            );
-
-
-            globe.setProjection({
-
-                type: "globe"
-
-            });
-
-
-            /*
-             * Stations may not have loaded yet.
-             *
-             * If stations are already available,
-             * create markers immediately.
-             */
-
-            if (
-                Array.isArray(stations) &&
-                stations.length > 0
-            ) {
-
-                createStationMarkers();
-
-            }
-
-
-            hideLoadingScreen();
-
-        }
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(
+        container.clientWidth,
+        container.clientHeight
     );
 
+    container.innerHTML = "";
+    container.appendChild(renderer.domElement);
 
-    // ======================================
-    // NAVIGATION CONTROL
-    // ======================================
+    /* ---------- LIGHT ---------- */
 
-    globe.addControl(
-
-        new maplibregl.NavigationControl(),
-
-        "bottom-right"
-
+    const ambientLight = new THREE.AmbientLight(
+        0xffffff,
+        1.2
     );
 
-}
+    scene.add(ambientLight);
 
-
-// ==========================================
-// CREATE STATION MARKERS
-// ==========================================
-
-function createStationMarkers() {
-
-    if (!globe) {
-
-        console.log(
-            "Globe is not ready."
-        );
-
-        return;
-
-    }
-
-
-    if (
-        !Array.isArray(stations) ||
-        stations.length === 0
-    ) {
-
-        console.log(
-            "No stations available yet."
-        );
-
-        return;
-
-    }
-
-
-    /*
-     * Remove old markers first.
-     *
-     * This prevents duplicate green dots
-     * when stations load again.
-     */
-
-    markerElements.forEach(
-        item => {
-
-            if (item.marker) {
-
-                item.marker.remove();
-
-            }
-
-        }
+    const directionalLight = new THREE.DirectionalLight(
+        0xffffff,
+        2
     );
 
+    directionalLight.position.set(5, 3, 5);
+    scene.add(directionalLight);
 
-    markerElements.length = 0;
+    /* ---------- EARTH ---------- */
 
-
-    console.log(
-        `Creating ${stations.length} station markers...`
+    const geometry = new THREE.SphereGeometry(
+        1,
+        96,
+        96
     );
 
-
-    // ======================================
-    // CREATE NEW MARKERS
-    // ======================================
-
-    stations.forEach(
-        station => {
-
-            if (!station) {
-
-                return;
-
-            }
-
-
-            const latitude =
-                Number(
-                    station.latitude
-                );
-
-
-            const longitude =
-                Number(
-                    station.longitude
-                );
-
-
-            /*
-             * Ignore stations without
-             * valid coordinates.
-             */
-
-            if (
-
-                !Number.isFinite(
-                    latitude
-                )
-
-                ||
-
-                !Number.isFinite(
-                    longitude
-                )
-
-            ) {
-
-                return;
-
-            }
-
-
-            // =================================
-            // MARKER BUTTON
-            // =================================
-
-            const element =
-                document.createElement(
-                    "button"
-                );
-
-
-            element.type =
-                "button";
-
-
-            element.className =
-                "station-marker";
-
-
-            element.title =
-                `${station.name} — ${station.city}`;
-
-
-            /*
-             * Accessibility
-             */
-
-            element.setAttribute(
-                "aria-label",
-                `Play ${station.name}`
-            );
-
-
-            // =================================
-            // MARKER CLICK
-            // =================================
-
-            element.addEventListener(
-                "click",
-                event => {
-
-                    event.preventDefault();
-
-                    event.stopPropagation();
-
-
-                    console.log(
-                        "Station selected:",
-                        station.name
-                    );
-
-
-                    focusStation(
-                        station
-                    );
-
-
-                    selectStation(
-                        station
-                    );
-
-
-                    /*
-                     * Start playback.
-                     */
-
-                    if (
-                        typeof playStation ===
-                        "function"
-                    ) {
-
-                        playStation(
-                            station
-                        );
-
-                    }
-
-                }
-            );
-
-
-            // =================================
-            // CREATE MAP MARKER
-            // =================================
-
-            const marker =
-                new maplibregl.Marker({
-
-                    element:
-                        element
-
-                })
-
-                .setLngLat([
-
-                    longitude,
-
-                    latitude
-
-                ])
-
-                .addTo(globe);
-
-
-            // =================================
-            // SAVE MARKER
-            // =================================
-
-            markerElements.push({
-
-                station:
-                    station,
-
-                marker:
-                    marker,
-
-                element:
-                    element
-
-            });
-
-        }
-    );
-
-
-    console.log(
-        `Created ${markerElements.length} station markers.`
-    );
-
-}
-
-
-// ==========================================
-// STATIONS LOADED EVENT
-// ==========================================
-//
-// IMPORTANT:
-//
-// stations.js loads data asynchronously.
-// This event makes sure the globe gets
-// the markers AFTER the API finishes.
-//
-
-document.addEventListener(
-    "stationsLoaded",
-    event => {
-
-        console.log(
-            "stationsLoaded event received."
-        );
-
-
-        /*
-         * Small delay makes sure the map
-         * and DOM are ready.
-         */
-
-        setTimeout(
-            () => {
-
-                if (!globe) {
-
-                    console.log(
-                        "Globe not ready yet."
-                    );
-
-                    return;
-
-                }
-
-
-                createStationMarkers();
-
-
-                /*
-                 * If stations were loaded,
-                 * hide the loading screen.
-                 */
-
-                hideLoadingScreen();
-
-            },
-            100
-        );
-
-    }
-);
-
-
-// ==========================================
-// STATIONS LOAD ERROR
-// ==========================================
-
-document.addEventListener(
-    "stationsLoadError",
-    event => {
-
-        console.error(
-            "Station loading failed:",
-            event.detail
-        );
-
-
-        hideLoadingScreen();
-
-    }
-);
-
-
-// ==========================================
-// FOCUS STATION
-// ==========================================
-
-function focusStation(station) {
-
-    if (
-        !globe ||
-        !station
-    ) {
-
-        return;
-
-    }
-
-
-    const latitude =
-        Number(
-            station.latitude
-        );
-
-
-    const longitude =
-        Number(
-            station.longitude
-        );
-
-
-    if (
-
-        !Number.isFinite(
-            latitude
-        )
-
-        ||
-
-        !Number.isFinite(
-            longitude
-        )
-
-    ) {
-
-        return;
-
-    }
-
-
-    globe.flyTo({
-
-        center: [
-
-            longitude,
-
-            latitude
-
-        ],
-
-        zoom: 4,
-
-        speed: 0.8,
-
-        curve: 1.2,
-
-        essential: true
-
+    const material = new THREE.MeshPhongMaterial({
+        color: 0x1769aa,
+        shininess: 25,
+        transparent: false
     });
 
+    earth = new THREE.Mesh(
+        geometry,
+        material
+    );
+
+    scene.add(earth);
+
+    /* ---------- ATMOSPHERE ---------- */
+
+    const atmosphereGeometry =
+        new THREE.SphereGeometry(1.06, 96, 96);
+
+    const atmosphereMaterial =
+        new THREE.MeshBasicMaterial({
+            color: 0x4fc3ff,
+            transparent: true,
+            opacity: 0.12,
+            side: THREE.BackSide
+        });
+
+    const atmosphere = new THREE.Mesh(
+        atmosphereGeometry,
+        atmosphereMaterial
+    );
+
+    scene.add(atmosphere);
+
+    /* ---------- STARS ---------- */
+
+    createStars();
+
+    /* ---------- ANIMATION ---------- */
+
+    animate();
+
+    /* ---------- RESIZE ---------- */
+
+    window.addEventListener("resize", resizeGlobe);
 }
 
 
-// ==========================================
-// FIND STATION
-// ==========================================
+/* =========================================
+   STAR FIELD
+========================================= */
 
-function findStation(query) {
+function createStars() {
 
-    if (
-        !Array.isArray(stations)
-    ) {
+    const starGeometry =
+        new THREE.BufferGeometry();
 
-        return null;
+    const starCount = 1800;
+
+    const positions =
+        new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount * 3; i++) {
+
+        positions[i] =
+            (Math.random() - 0.5) * 20;
 
     }
 
-
-    const search =
-        String(
-            query || ""
+    starGeometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(
+            positions,
+            3
         )
-            .trim()
-            .toLowerCase();
-
-
-    if (!search) {
-
-        return null;
-
-    }
-
-
-    return stations.find(
-        station => {
-
-            const name =
-                String(
-                    station.name || ""
-                )
-                .toLowerCase();
-
-
-            const city =
-                String(
-                    station.city || ""
-                )
-                .toLowerCase();
-
-
-            const state =
-                String(
-                    station.state || ""
-                )
-                .toLowerCase();
-
-
-            const country =
-                String(
-                    station.country || ""
-                )
-                .toLowerCase();
-
-
-            const tags =
-                String(
-                    station.tags || ""
-                )
-                .toLowerCase();
-
-
-            return (
-
-                name.includes(search)
-
-                ||
-
-                city.includes(search)
-
-                ||
-
-                state.includes(search)
-
-                ||
-
-                country.includes(search)
-
-                ||
-
-                tags.includes(search)
-
-            );
-
-        }
     );
 
+    const starMaterial =
+        new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 0.025,
+            transparent: true,
+            opacity: 0.9
+        });
+
+    stars = new THREE.Points(
+        starGeometry,
+        starMaterial
+    );
+
+    scene.add(stars);
 }
 
 
-// ==========================================
-// FOCUS SEARCH RESULT
-// ==========================================
+/* =========================================
+   ANIMATION
+========================================= */
 
-function focusSearchResult(query) {
+function animate() {
 
-    const station =
-        findStation(
-            query
-        );
+    requestAnimationFrame(animate);
 
+    if (earth) {
 
-    if (!station) {
-
-        return null;
+        earth.rotation.y += 0.0015;
 
     }
 
+    if (stars) {
 
-    focusStation(
-        station
+        stars.rotation.y += 0.00015;
+
+    }
+
+    renderer.render(
+        scene,
+        camera
     );
-
-
-    selectStation(
-        station
-    );
-
-
-    return station;
-
 }
 
 
-// ==========================================
-// LOADING SCREEN
-// ==========================================
+/* =========================================
+   RESIZE
+========================================= */
 
-function hideLoadingScreen() {
+function resizeGlobe() {
 
-    const loading =
-        document.getElementById(
-            "loadingScreen"
-        );
+    const container =
+        document.getElementById("globe");
 
+    if (!container) return;
 
-    if (!loading) {
+    camera.aspect =
+        container.clientWidth /
+        container.clientHeight;
 
-        return;
+    camera.updateProjectionMatrix();
 
-    }
-
-
-    setTimeout(
-        () => {
-
-            loading.classList.add(
-                "hide"
-            );
-
-        },
-        500
+    renderer.setSize(
+        container.clientWidth,
+        container.clientHeight
     );
+}
 
-       }
+
+/* =========================================
+   START
+========================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initGlobe
+);
