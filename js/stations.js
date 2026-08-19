@@ -1,6 +1,6 @@
 // ==========================================
 // RADIO GLOBE - REAL RADIO STATIONS
-// Worldwide + Rajasthan + Rajasthan Cities
+// Worldwide + Rajasthan
 // Data source: Radio Browser API
 // ==========================================
 
@@ -12,6 +12,43 @@ const RADIO_BROWSER_SERVERS = [
 
 let stations = [];
 let stationsLoading = false;
+
+
+// ==========================================
+// RAJASTHAN CITIES
+// ==========================================
+
+const RAJASTHAN_CITIES = [
+    "Jaipur",
+    "Jodhpur",
+    "Udaipur",
+    "Kota",
+    "Ajmer",
+    "Bikaner",
+    "Alwar",
+    "Bharatpur",
+    "Kishangarh",
+    "Bhilwara",
+    "Sikar",
+    "Sri Ganganagar",
+    "Pali",
+    "Beawar",
+    "Chittorgarh",
+    "Barmer",
+    "Jaisalmer",
+    "Jhalawar",
+    "Tonk",
+    "Bundi",
+    "Nagaur",
+    "Hanumangarh",
+    "Dausa",
+    "Jhunjhunu",
+    "Churu",
+    "Sawai Madhopur",
+    "Suratgarh",
+    "Banswara",
+    "Mount Abu"
+];
 
 
 // ==========================================
@@ -35,6 +72,11 @@ async function getRadioBrowserServer() {
             );
 
             if (response.ok) {
+
+                console.log(
+                    `Radio Browser server: ${server}`
+                );
+
                 return server;
             }
 
@@ -110,8 +152,7 @@ function formatStation(station) {
             "",
 
         bitrate:
-            Number(station.bitrate) ||
-            0,
+            Number(station.bitrate) || 0,
 
         tags:
             station.tags ||
@@ -122,36 +163,56 @@ function formatStation(station) {
             "",
 
         votes:
-            Number(station.votes) ||
-            0
+            Number(station.votes) || 0
+
     };
 }
 
 
 // ==========================================
-// CLEAN STATIONS
+// CHECK STATION
+// ==========================================
+
+function isValidStation(station) {
+
+    return (
+
+        station &&
+
+        station.stationuuid &&
+
+        station.geo_lat !== null &&
+
+        station.geo_lat !== undefined &&
+
+        station.geo_long !== null &&
+
+        station.geo_long !== undefined &&
+
+        (
+            station.url_resolved ||
+            station.url
+        )
+
+    );
+}
+
+
+// ==========================================
+// CLEAN API RESULTS
 // ==========================================
 
 function cleanStations(data) {
 
+    if (!Array.isArray(data)) {
+
+        return [];
+
+    }
+
     return data
 
-        .filter(station => {
-
-            return (
-
-                station.geo_lat !== null &&
-
-                station.geo_long !== null &&
-
-                (
-                    station.url_resolved ||
-                    station.url
-                )
-
-            );
-
-        })
+        .filter(isValidStation)
 
         .map(formatStation);
 
@@ -164,35 +225,34 @@ function cleanStations(data) {
 
 async function getWorldwideStations(server) {
 
-    const params =
-        new URLSearchParams({
+    const params = new URLSearchParams({
 
-            hidebroken: "true",
+        hidebroken: "true",
 
-            has_geo_info: "true",
+        has_geo_info: "true",
 
-            order: "clickcount",
+        order: "clickcount",
 
-            reverse: "true",
+        reverse: "true",
 
-            limit: "500"
+        limit: "500"
 
-        });
+    });
 
 
-    const response =
-        await fetch(
+    const response = await fetch(
 
-            `${server}/json/stations/search?${params}`,
+        `${server}/json/stations/search?${params.toString()}`,
 
-            {
-                headers: {
-                    "Accept":
-                        "application/json"
-                }
+        {
+            method: "GET",
+
+            headers: {
+                "Accept": "application/json"
             }
+        }
 
-        );
+    );
 
 
     if (!response.ok) {
@@ -214,53 +274,54 @@ async function getWorldwideStations(server) {
 
 
 // ==========================================
-// RAJASTHAN STATE SEARCH
+// RAJASTHAN STATE STATIONS
 // ==========================================
 
 async function getRajasthanStateStations(server) {
 
-    const params =
-        new URLSearchParams({
+    const params = new URLSearchParams({
 
-            countrycode: "IN",
+        countrycode: "IN",
 
-            state: "Rajasthan",
+        state: "Rajasthan",
 
-            stateExact: "false",
+        stateExact: "false",
 
-            hidebroken: "true",
+        hidebroken: "true",
 
-            has_geo_info: "true",
+        has_geo_info: "true",
 
-            order: "clickcount",
+        order: "clickcount",
 
-            reverse: "true",
+        reverse: "true",
 
-            limit: "100"
+        limit: "100"
 
-        });
+    });
 
 
-    const response =
-        await fetch(
+    const response = await fetch(
 
-            `${server}/json/stations/search?${params}`,
+        `${server}/json/stations/search?${params.toString()}`,
 
-            {
-                headers: {
-                    "Accept":
-                        "application/json"
-                }
+        {
+            method: "GET",
+
+            headers: {
+                "Accept": "application/json"
             }
+        }
 
-        );
+    );
 
 
     if (!response.ok) {
 
-        throw new Error(
+        console.log(
             `Rajasthan state request failed: ${response.status}`
         );
+
+        return [];
 
     }
 
@@ -275,88 +336,56 @@ async function getRajasthanStateStations(server) {
 
 
 // ==========================================
-// RAJASTHAN CITY SEARCH
+// RAJASTHAN CITY STATIONS
 // ==========================================
 
 async function getRajasthanCityStations(server) {
 
-    const cities = [
-
-        "Jaipur",
-        "Jodhpur",
-        "Udaipur",
-        "Kota",
-        "Ajmer",
-        "Bikaner",
-        "Alwar",
-        "Bharatpur",
-        "Kishangarh",
-        "Bhilwara",
-        "Sikar",
-        "Sri Ganganagar",
-        "Pali",
-        "Beawar",
-        "Chittorgarh",
-        "Barmer",
-        "Jaisalmer",
-        "Tonk",
-        "Bundi",
-        "Nagaur",
-        "Hanumangarh",
-        "Dausa",
-        "Jhunjhunu",
-        "Churu"
-    ];
-
-
     const results = [];
 
 
-    for (const city of cities) {
+    for (const city of RAJASTHAN_CITIES) {
 
         try {
 
-            const params =
-                new URLSearchParams({
+            const params = new URLSearchParams({
 
-                    countrycode: "IN",
+                countrycode: "IN",
 
-                    state: "Rajasthan",
+                name: city,
 
-                    name: city,
+                hidebroken: "true",
 
-                    hidebroken: "true",
+                has_geo_info: "true",
 
-                    has_geo_info: "true",
+                order: "clickcount",
 
-                    order: "clickcount",
+                reverse: "true",
 
-                    reverse: "true",
+                limit: "25"
 
-                    limit: "25"
-
-                });
+            });
 
 
-            const response =
-                await fetch(
+            const response = await fetch(
 
-                    `${server}/json/stations/search?${params}`,
+                `${server}/json/stations/search?${params.toString()}`,
 
-                    {
-                        headers: {
-                            "Accept":
-                                "application/json"
-                        }
+                {
+                    method: "GET",
+
+                    headers: {
+                        "Accept": "application/json"
                     }
+                }
 
-                );
+            );
 
 
             if (!response.ok) {
 
                 console.log(
-                    `${city} request failed`
+                    `${city}: request failed`
                 );
 
                 continue;
@@ -372,13 +401,52 @@ async function getRajasthanCityStations(server) {
                 cleanStations(data);
 
 
+            /*
+             * Keep only stations that are
+             * actually related to Rajasthan.
+             */
+
+            const rajasthanStations =
+                cityStations.filter(station => {
+
+                    const cityText =
+                        (
+                            station.city +
+                            " " +
+                            station.state +
+                            " " +
+                            station.name +
+                            " " +
+                            station.tags
+                        )
+                            .toLowerCase();
+
+
+                    return (
+
+                        cityText.includes(
+                            city.toLowerCase()
+                        )
+
+                        ||
+
+                        (
+                            station.countryCode ===
+                            "IN"
+                        )
+
+                    );
+
+                });
+
+
             results.push(
-                ...cityStations
+                ...rajasthanStations
             );
 
 
             console.log(
-                `${city}: ${cityStations.length} stations`
+                `${city}: ${rajasthanStations.length} station(s)`
             );
 
 
@@ -395,6 +463,41 @@ async function getRajasthanCityStations(server) {
 
 
     return results;
+
+}
+
+
+// ==========================================
+// REMOVE DUPLICATES
+// ==========================================
+
+function removeDuplicates(stationList) {
+
+    const unique =
+        new Map();
+
+
+    stationList.forEach(station => {
+
+        if (
+            station &&
+            station.id &&
+            !unique.has(station.id)
+        ) {
+
+            unique.set(
+                station.id,
+                station
+            );
+
+        }
+
+    });
+
+
+    return Array.from(
+        unique.values()
+    );
 
 }
 
@@ -437,7 +540,7 @@ async function loadStations() {
 
 
         console.log(
-            `Worldwide stations: ${worldwideStations.length}`
+            `Worldwide: ${worldwideStations.length}`
         );
 
 
@@ -446,7 +549,7 @@ async function loadStations() {
         // ----------------------------------
 
         console.log(
-            "Loading Rajasthan stations..."
+            "Loading Rajasthan state stations..."
         );
 
 
@@ -457,7 +560,7 @@ async function loadStations() {
 
 
         console.log(
-            `Rajasthan state stations: ${rajasthanStateStations.length}`
+            `Rajasthan state: ${rajasthanStateStations.length}`
         );
 
 
@@ -477,7 +580,7 @@ async function loadStations() {
 
 
         console.log(
-            `Rajasthan city stations: ${rajasthanCityStations.length}`
+            `Rajasthan cities: ${rajasthanCityStations.length}`
         );
 
 
@@ -500,34 +603,9 @@ async function loadStations() {
         // REMOVE DUPLICATES
         // ----------------------------------
 
-        const uniqueStations =
-            new Map();
-
-
-        combinedStations.forEach(
-            station => {
-
-                if (
-                    station.id &&
-                    !uniqueStations.has(
-                        station.id
-                    )
-                ) {
-
-                    uniqueStations.set(
-                        station.id,
-                        station
-                    );
-
-                }
-
-            }
-        );
-
-
         stations =
-            Array.from(
-                uniqueStations.values()
+            removeDuplicates(
+                combinedStations
             );
 
 
@@ -537,7 +615,7 @@ async function loadStations() {
 
 
         // ----------------------------------
-        // TELL APPLICATION
+        // SHOW RESULTS TO APPLICATION
         // ----------------------------------
 
         document.dispatchEvent(
@@ -578,7 +656,7 @@ async function loadStations() {
         );
 
 
-        return stations;
+        return [];
 
 
     } finally {
@@ -645,14 +723,14 @@ async function registerStationClick(
             )}`,
 
             {
+                method: "GET",
+
                 headers: {
-                    "Accept":
-                        "application/json"
+                    "Accept": "application/json"
                 }
             }
 
         );
-
 
     } catch (error) {
 
@@ -667,48 +745,7 @@ async function registerStationClick(
 
 
 // ==========================================
-// START LOADING
-// ==========================================
-// ==========================================
-// VERIFIED RAJASTHAN ONLINE STATION
+// START
 // ==========================================
 
-const RAJASTHAN_STATIONS = [
-
-    {
-        id: "air-jaipur",
-        name: "Akashvani Jaipur",
-        city: "Jaipur",
-        state: "Rajasthan",
-        country: "India",
-        countryCode: "IN",
-
-        latitude: 26.9124,
-        longitude: 75.7873,
-
-        /*
-         * Online stream source
-         */
-        stream:
-            "https://stream.zeno.fm/0r0t9d0h5p8uv",
-
-        homepage:
-            "https://akashvani.gov.in/",
-
-        favicon: "",
-
-        codec: "MP3",
-
-        bitrate: 51,
-
-        tags:
-            "Rajasthan, Hindi, Rajasthani, News, Music",
-
-        language:
-            "Hindi, Rajasthani",
-
-        votes: 0
-    }
-
-];
 loadStations();
