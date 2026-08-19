@@ -1,6 +1,6 @@
 // ==========================================
 // RADIO GLOBE - REAL RADIO STATIONS
-// Worldwide + Rajasthan stations
+// Worldwide + Rajasthan + Rajasthan Cities
 // Data source: Radio Browser API
 // ==========================================
 
@@ -54,23 +54,29 @@ async function getRadioBrowserServer() {
 
 
 // ==========================================
-// CONVERT API STATION INTO OUR FORMAT
+// FORMAT STATION
 // ==========================================
 
 function formatStation(station) {
 
     return {
 
-        id: station.stationuuid,
+        id:
+            station.stationuuid,
 
         name:
             station.name ||
             "Unknown Station",
 
         city:
+            station.city ||
             station.state ||
             station.country ||
             "Unknown",
+
+        state:
+            station.state ||
+            "",
 
         country:
             station.country ||
@@ -87,7 +93,9 @@ function formatStation(station) {
             Number(station.geo_long),
 
         stream:
-            station.url_resolved,
+            station.url_resolved ||
+            station.url ||
+            "",
 
         homepage:
             station.homepage ||
@@ -121,114 +129,76 @@ function formatStation(station) {
 
 
 // ==========================================
-// GET WORLDWIDE STATIONS
+// CLEAN STATIONS
 // ==========================================
 
-async function getWorldwideStations(server) {
-
-    const params = new URLSearchParams({
-
-        hidebroken: "true",
-
-        has_geo_info: "true",
-
-        order: "clickcount",
-
-        reverse: "true",
-
-        limit: "500"
-    });
-
-
-    const response = await fetch(
-
-        `${server}/json/stations/search?${params.toString()}`,
-
-        {
-            method: "GET",
-
-            headers: {
-                "Accept": "application/json"
-            }
-        }
-
-    );
-
-
-    if (!response.ok) {
-
-        throw new Error(
-            `Worldwide station request failed: ${response.status}`
-        );
-
-    }
-
-
-    const data =
-        await response.json();
-
+function cleanStations(data) {
 
     return data
 
-        .filter(station =>
+        .filter(station => {
 
-            station.geo_lat !== null &&
+            return (
 
-            station.geo_long !== null &&
+                station.geo_lat !== null &&
 
-            station.url_resolved
+                station.geo_long !== null &&
 
-        )
+                (
+                    station.url_resolved ||
+                    station.url
+                )
+
+            );
+
+        })
 
         .map(formatStation);
+
 }
 
 
 // ==========================================
-// GET RAJASTHAN STATIONS
+// WORLDWIDE STATIONS
 // ==========================================
 
-async function getRajasthanStations(server) {
+async function getWorldwideStations(server) {
 
-    const params = new URLSearchParams({
+    const params =
+        new URLSearchParams({
 
-        countrycode: "IN",
+            hidebroken: "true",
 
-        state: "Rajasthan",
+            has_geo_info: "true",
 
-        stateExact: "false",
+            order: "clickcount",
 
-        hidebroken: "true",
+            reverse: "true",
 
-        has_geo_info: "true",
+            limit: "500"
 
-        order: "clickcount",
-
-        reverse: "true",
-
-        limit: "100"
-    });
+        });
 
 
-    const response = await fetch(
+    const response =
+        await fetch(
 
-        `${server}/json/stations/search?${params.toString()}`,
+            `${server}/json/stations/search?${params}`,
 
-        {
-            method: "GET",
-
-            headers: {
-                "Accept": "application/json"
+            {
+                headers: {
+                    "Accept":
+                        "application/json"
+                }
             }
-        }
 
-    );
+        );
 
 
     if (!response.ok) {
 
         throw new Error(
-            `Rajasthan station request failed: ${response.status}`
+            `Worldwide request failed: ${response.status}`
         );
 
     }
@@ -238,19 +208,194 @@ async function getRajasthanStations(server) {
         await response.json();
 
 
-    return data
+    return cleanStations(data);
 
-        .filter(station =>
+}
 
-            station.geo_lat !== null &&
 
-            station.geo_long !== null &&
+// ==========================================
+// RAJASTHAN STATE SEARCH
+// ==========================================
 
-            station.url_resolved
+async function getRajasthanStateStations(server) {
 
-        )
+    const params =
+        new URLSearchParams({
 
-        .map(formatStation);
+            countrycode: "IN",
+
+            state: "Rajasthan",
+
+            stateExact: "false",
+
+            hidebroken: "true",
+
+            has_geo_info: "true",
+
+            order: "clickcount",
+
+            reverse: "true",
+
+            limit: "100"
+
+        });
+
+
+    const response =
+        await fetch(
+
+            `${server}/json/stations/search?${params}`,
+
+            {
+                headers: {
+                    "Accept":
+                        "application/json"
+                }
+            }
+
+        );
+
+
+    if (!response.ok) {
+
+        throw new Error(
+            `Rajasthan state request failed: ${response.status}`
+        );
+
+    }
+
+
+    const data =
+        await response.json();
+
+
+    return cleanStations(data);
+
+}
+
+
+// ==========================================
+// RAJASTHAN CITY SEARCH
+// ==========================================
+
+async function getRajasthanCityStations(server) {
+
+    const cities = [
+
+        "Jaipur",
+        "Jodhpur",
+        "Udaipur",
+        "Kota",
+        "Ajmer",
+        "Bikaner",
+        "Alwar",
+        "Bharatpur",
+        "Kishangarh",
+        "Bhilwara",
+        "Sikar",
+        "Sri Ganganagar",
+        "Pali",
+        "Beawar",
+        "Chittorgarh",
+        "Barmer",
+        "Jaisalmer",
+        "Tonk",
+        "Bundi",
+        "Nagaur",
+        "Hanumangarh",
+        "Dausa",
+        "Jhunjhunu",
+        "Churu"
+    ];
+
+
+    const results = [];
+
+
+    for (const city of cities) {
+
+        try {
+
+            const params =
+                new URLSearchParams({
+
+                    countrycode: "IN",
+
+                    state: "Rajasthan",
+
+                    name: city,
+
+                    hidebroken: "true",
+
+                    has_geo_info: "true",
+
+                    order: "clickcount",
+
+                    reverse: "true",
+
+                    limit: "25"
+
+                });
+
+
+            const response =
+                await fetch(
+
+                    `${server}/json/stations/search?${params}`,
+
+                    {
+                        headers: {
+                            "Accept":
+                                "application/json"
+                        }
+                    }
+
+                );
+
+
+            if (!response.ok) {
+
+                console.log(
+                    `${city} request failed`
+                );
+
+                continue;
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            const cityStations =
+                cleanStations(data);
+
+
+            results.push(
+                ...cityStations
+            );
+
+
+            console.log(
+                `${city}: ${cityStations.length} stations`
+            );
+
+
+        } catch (error) {
+
+            console.log(
+                `Could not search ${city}:`,
+                error
+            );
+
+        }
+
+    }
+
+
+    return results;
+
 }
 
 
@@ -276,12 +421,19 @@ async function loadStations() {
             await getRadioBrowserServer();
 
 
-        // -------------------------------
-        // Worldwide stations
-        // -------------------------------
+        // ----------------------------------
+        // WORLDWIDE
+        // ----------------------------------
+
+        console.log(
+            "Loading worldwide stations..."
+        );
+
 
         const worldwideStations =
-            await getWorldwideStations(server);
+            await getWorldwideStations(
+                server
+            );
 
 
         console.log(
@@ -289,69 +441,88 @@ async function loadStations() {
         );
 
 
-        // -------------------------------
-        // Rajasthan stations
-        // -------------------------------
+        // ----------------------------------
+        // RAJASTHAN STATE
+        // ----------------------------------
 
-        let rajasthanStations = [];
-
-
-        try {
-
-            rajasthanStations =
-                await getRajasthanStations(server);
+        console.log(
+            "Loading Rajasthan stations..."
+        );
 
 
-            console.log(
-                `Rajasthan stations: ${rajasthanStations.length}`
+        const rajasthanStateStations =
+            await getRajasthanStateStations(
+                server
             );
 
-        } catch (error) {
 
-            console.error(
-                "Rajasthan stations could not be loaded:",
-                error
+        console.log(
+            `Rajasthan state stations: ${rajasthanStateStations.length}`
+        );
+
+
+        // ----------------------------------
+        // RAJASTHAN CITIES
+        // ----------------------------------
+
+        console.log(
+            "Searching Rajasthan cities..."
+        );
+
+
+        const rajasthanCityStations =
+            await getRajasthanCityStations(
+                server
             );
 
-        }
+
+        console.log(
+            `Rajasthan city stations: ${rajasthanCityStations.length}`
+        );
 
 
-        // -------------------------------
-        // Combine both lists
-        // -------------------------------
+        // ----------------------------------
+        // COMBINE
+        // ----------------------------------
 
         const combinedStations = [
 
             ...worldwideStations,
 
-            ...rajasthanStations
+            ...rajasthanStateStations,
+
+            ...rajasthanCityStations
 
         ];
 
 
-        // -------------------------------
-        // Remove duplicate stations
-        // -------------------------------
+        // ----------------------------------
+        // REMOVE DUPLICATES
+        // ----------------------------------
 
         const uniqueStations =
             new Map();
 
 
-        combinedStations.forEach(station => {
+        combinedStations.forEach(
+            station => {
 
-            if (
-                station.id &&
-                !uniqueStations.has(station.id)
-            ) {
+                if (
+                    station.id &&
+                    !uniqueStations.has(
+                        station.id
+                    )
+                ) {
 
-                uniqueStations.set(
-                    station.id,
-                    station
-                );
+                    uniqueStations.set(
+                        station.id,
+                        station
+                    );
+
+                }
 
             }
-
-        });
+        );
 
 
         stations =
@@ -361,13 +532,13 @@ async function loadStations() {
 
 
         console.log(
-            `Radio Globe loaded ${stations.length} real stations.`
+            `Radio Globe loaded ${stations.length} total stations.`
         );
 
 
-        // =================================
+        // ----------------------------------
         // TELL APPLICATION
-        // =================================
+        // ----------------------------------
 
         document.dispatchEvent(
 
@@ -415,6 +586,7 @@ async function loadStations() {
         stationsLoading = false;
 
     }
+
 }
 
 
@@ -430,7 +602,7 @@ function getStations() {
 
 
 // ==========================================
-// FIND STATION BY ID
+// GET STATION BY ID
 // ==========================================
 
 function getStationById(id) {
@@ -449,7 +621,9 @@ function getStationById(id) {
 // REGISTER STATION CLICK
 // ==========================================
 
-async function registerStationClick(stationId) {
+async function registerStationClick(
+    stationId
+) {
 
     if (!stationId) {
 
@@ -466,13 +640,14 @@ async function registerStationClick(stationId) {
 
         await fetch(
 
-            `${server}/json/url/${encodeURIComponent(stationId)}`,
+            `${server}/json/url/${encodeURIComponent(
+                stationId
+            )}`,
 
             {
-                method: "GET",
-
                 headers: {
-                    "Accept": "application/json"
+                    "Accept":
+                        "application/json"
                 }
             }
 
